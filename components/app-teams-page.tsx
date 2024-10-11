@@ -8,10 +8,12 @@ import React from "react"
 
 type Team = {
   team_abbreviation: string
+  team_name: string
 }
 
 type TeamApiResponse = {
   team_abbreviation: string
+  team_name: string
 }
 
 export function Page() {
@@ -30,8 +32,17 @@ export function Page() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      const data = await response.json()
-      setTeams(data)
+      const data: TeamApiResponse[] = await response.json()
+      
+      // Remove duplicates based on team_abbreviation
+      const uniqueTeams = data.reduce((acc, current) => {
+        if (!acc.find(team => team.team_abbreviation === current.team_abbreviation)) {
+          acc.push(current)
+        }
+        return acc
+      }, [] as TeamApiResponse[])
+
+      setTeams(uniqueTeams)
     } catch (error) {
       console.error('Error fetching teams:', error)
       setError('Failed to load teams')
@@ -82,7 +93,7 @@ export function Page() {
               <Link href={`/teams/${encodeURIComponent(team.team_abbreviation)}`}>
                 <Card className="bg-white border-[#17408B] hover:border-[#C9082A] transition-all overflow-hidden group">
                   <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
-                    <CardTitle className="text-2xl font-bold text-white">{team.team_abbreviation}</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-white">{team.team_name}</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
                     <p className="text-gray-700">Abbreviation: <span className="font-semibold text-[#C9082A]">{team.team_abbreviation}</span></p>
