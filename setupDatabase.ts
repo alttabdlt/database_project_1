@@ -4,8 +4,8 @@ import { parse } from 'csv-parse';
 
 const dbConfig = {
   host: 'localhost',
-  user: 'axel',
-  password: 'axel',
+  user: 'postgres',
+  password: '1234',
   database: 'nba_stats',
   port: 5432,
 };
@@ -32,6 +32,7 @@ interface CsvRow {
   ts_pct: string;
   ast_pct: string;
   season: string;
+  team_name: string;
 }
 
 function parseNumeric(value: string): number | null {
@@ -73,6 +74,7 @@ async function setupDatabase() {
         ts_pct FLOAT,
         ast_pct FLOAT,
         season VARCHAR(7),
+        team_name VARCHAR(255),
         UNIQUE (player_name, season)
       )
     `);
@@ -82,7 +84,11 @@ async function setupDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_season ON player_seasons(season)`);
 
     const parser = parse({ columns: true });
-    const fileStream = fs.createReadStream('/Users/axel/Desktop/Personal Projects/nba-comparison-project-1/all_seasons.csv');
+    if (!fs.existsSync('/Users/nithiyapriyaramesh/Desktop/database_project_1/all_seasons_1.csv')) {
+      console.error('CSV file not found');
+      process.exit(1);
+    }    
+    const fileStream = fs.createReadStream('/Users/nithiyapriyaramesh/Desktop/database_project_1/all_seasons_1.csv');
     const csvStream = fileStream.pipe(parser);
 
     let batch: CsvRow[] = [];
@@ -119,12 +125,12 @@ async function processBatch(client: pg.Client, batch: CsvRow[]) {
         player_name, team_abbreviation, age, player_height, player_weight,
         college, country, draft_year, draft_round, draft_number,
         gp, pts, reb, ast, net_rating,
-        oreb_pct, dreb_pct, usg_pct, ts_pct, ast_pct, season
+        oreb_pct, dreb_pct, usg_pct, ts_pct, ast_pct, season, team_name
       ) VALUES (
         $1, $2, $3, $4, $5,
         $6, $7, $8, $9, $10,
         $11, $12, $13, $14, $15,
-        $16, $17, $18, $19, $20, $21
+        $16, $17, $18, $19, $20, $21, $22
       )
       ON CONFLICT (player_name, season) DO UPDATE SET
         team_abbreviation = EXCLUDED.team_abbreviation,
@@ -145,7 +151,8 @@ async function processBatch(client: pg.Client, batch: CsvRow[]) {
         dreb_pct = EXCLUDED.dreb_pct,
         usg_pct = EXCLUDED.usg_pct,
         ts_pct = EXCLUDED.ts_pct,
-        ast_pct = EXCLUDED.ast_pct
+        ast_pct = EXCLUDED.ast_pct,
+        team_name = EXCLUDED.team_name
     `;
 
     for (const row of batch) {
@@ -171,6 +178,7 @@ async function processBatch(client: pg.Client, batch: CsvRow[]) {
         parseNumeric(row.ts_pct),
         parseNumeric(row.ast_pct),
         row.season,
+        row.team_name || null,
       ];
 
       await client.query(query, values);
