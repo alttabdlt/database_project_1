@@ -11,20 +11,31 @@ export async function GET(
 
   try {
     const { rows } = await pool.query(
-      `SELECT player_name, draft_year, draft_round, draft_number, 
-       json_agg(json_build_object(
-         'season', season,
-         'team_abbreviation', team_abbreviation,
-         'age', age,
-         'pts', pts,
-         'reb', reb,
-         'ast', ast,
-         'net_rating', net_rating,
-         'college', college
-       ) ORDER BY season DESC) as seasons
-       FROM player_seasons 
-       WHERE player_name = $1 
-       GROUP BY player_name, draft_year, draft_round, draft_number`,
+      `SELECT 
+    ps.player_name, 
+    ps.draft_year, 
+    ps.draft_round, 
+    ps.draft_number, 
+    json_agg(
+        json_build_object(
+            'season', ps.season, -- Use season from player_seasons
+            'team_abbreviation', ps.team_abbreviation,
+            'age', ps.age,
+            'pts', ps.pts,
+            'reb', ps.reb,
+            'ast', ps.ast,
+            'net_rating', ps.net_rating,
+            'college', ps.college,
+            'salary', COALESCE(ns.salary, 0) -- Merge salary from nba_salaries or default to 0
+        ) ORDER BY ps.season DESC
+    ) as seasons
+FROM player_seasons ps
+LEFT JOIN nba_salaries ns 
+ON ps.player_name = ns.name 
+AND ps.year = CAST(ns.season AS NUMERIC) -- Cast season to string
+WHERE ps.player_name = $1
+GROUP BY ps.player_name, ps.draft_year, ps.draft_round, ps.draft_number;
+`,
       [id]
     )
 

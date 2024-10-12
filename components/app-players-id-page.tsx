@@ -19,7 +19,9 @@ type PlayerSeasonStats = {
   ast: number;
   net_rating: number;
   college: string | null;
+  salary: number | null; // Adding salary field
 };
+
 
 type PlayerApiResponse = {
   player_name: string;
@@ -56,6 +58,7 @@ export function Page() {
       // Sort the seasons data in ascending order
       data.seasons.sort((a: PlayerSeasonStats, b: PlayerSeasonStats) => a.season.localeCompare(b.season))
       setPlayer(data)
+      console.log(data);
     } catch (error) {
       console.error('Error fetching player data:', error)
       setError(error instanceof Error ? error.message : 'An unexpected error occurred')
@@ -63,6 +66,7 @@ export function Page() {
       setLoading(false)
     }
   }
+  
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>
@@ -92,15 +96,30 @@ export function Page() {
         <h1 className="text-5xl font-bold text-center mb-12 text-[#17408B]">{player.player_name}</h1>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-          <Card className="bg-white border-[#17408B]">
-            <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
-              <CardTitle className="text-2xl font-bold text-white">Personal Info</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <p><strong>College:</strong> {player.seasons[0]?.college || 'N/A'}</p>
-              <p><strong>Seasons:</strong> {player.seasons.map(s => s.season).join(', ')}</p>
-            </CardContent>
-          </Card>
+                <Card className="bg-white border-[#17408B]">
+          <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
+            <CardTitle className="text-2xl font-bold text-white">Personal Info</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+  <p><strong>College:</strong> {player.seasons[0]?.college || 'N/A'}</p>
+  <p><strong>Seasons:</strong> {player.seasons.map(s => s.season).join(', ')}</p>
+
+  {/* Get the latest valid season based on the year with a non-null salary */}
+  <p><strong>Latest Salary:</strong> 
+    {(() => {
+      const latestSeasonWithSalary = player.seasons
+        .filter(season => season.salary !== null && season.salary > 0) // Filter out seasons without salary
+        .reduce((prev, curr) => curr.season > prev.season ? curr : prev, player.seasons[0]); // Find latest season
+      return latestSeasonWithSalary.salary !== null 
+        ? `$${latestSeasonWithSalary.salary.toLocaleString()}` 
+        : 'Not in Dataset';
+    })()}
+  </p>
+</CardContent>
+
+
+
+        </Card>
 
           <Card className="bg-white border-[#17408B]">
             <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
@@ -115,39 +134,52 @@ export function Page() {
         </div>
 
         <Card className="bg-white border-[#17408B] mb-12">
-          <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
-            <CardTitle className="text-2xl font-bold text-white">Performance Stats</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Season</TableHead>
-                  <TableHead>Team</TableHead>
-                  <TableHead>Age</TableHead>
-                  <TableHead>Points</TableHead>
-                  <TableHead>Rebounds</TableHead>
-                  <TableHead>Assists</TableHead>
-                  <TableHead>Net Rating</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {player.seasons.map((season, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{season.season}</TableCell>
-                    <TableCell>{season.team_abbreviation}</TableCell>
-                    <TableCell>{season.age}</TableCell>
-                    <TableCell>{season.pts.toFixed(1)}</TableCell>
-                    <TableCell>{season.reb.toFixed(1)}</TableCell>
-                    <TableCell>{season.ast.toFixed(1)}</TableCell>
-                    <TableCell>{season.net_rating.toFixed(1)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+  <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
+    <CardTitle className="text-2xl font-bold text-white">Performance Stats</CardTitle>
+  </CardHeader>
+  <CardContent className="pt-4">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Season</TableHead>
+          <TableHead>Team</TableHead>
+          <TableHead>Age</TableHead>
+          <TableHead>Points</TableHead>
+          <TableHead>Rebounds</TableHead>
+          <TableHead>Assists</TableHead>
+          <TableHead>Net Rating</TableHead>
+          <TableHead>Salary</TableHead> {/* New column for salary */}
+        </TableRow>
+      </TableHeader>
 
+      <TableBody>
+  {player.seasons.map((season, index) => (
+    <TableRow key={index}>
+      <TableCell>{season.season}</TableCell>
+      <TableCell>{season.team_abbreviation}</TableCell>
+      <TableCell>{season.age}</TableCell>
+      <TableCell>{season.pts.toFixed(1)}</TableCell>
+      <TableCell>{season.reb.toFixed(1)}</TableCell>
+      <TableCell>{season.ast.toFixed(1)}</TableCell>
+      <TableCell>{season.net_rating.toFixed(1)}</TableCell>
+      <TableCell>
+  {season.salary && season.salary > 0 
+    ? `$${season.salary.toLocaleString()}`  // Add $ if salary is present and valid
+    : 'Not in Dataset'} 
+</TableCell>
+    </TableRow>
+  ))}
+</TableBody>
+
+
+
+
+
+
+
+    </Table>
+  </CardContent>
+</Card>
         <Card className="bg-white border-[#17408B] mb-12">
           <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
             <CardTitle className="text-2xl font-bold text-white">Performance Trends</CardTitle>

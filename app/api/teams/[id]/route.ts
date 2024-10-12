@@ -14,15 +14,18 @@ export async function GET(
     const { rows } = await pool.query(
       `
       SELECT 
-        team_abbreviation, 
-        team_name,
-        AVG(player_weight) as avg_weight,
-        AVG(age) as avg_age,
-        AVG(player_height) as avg_height,
-        SUM(gp) as total_gp
-      FROM player_seasons
-      WHERE team_abbreviation = $1
-      GROUP BY team_abbreviation, team_name
+  team_abbreviation, 
+  team_name,
+  AVG(player_weight) as avg_weight,
+  AVG(age) as avg_age,
+  AVG(player_height) as avg_height,
+  SUM(gp) as total_gp,
+  SUM(pts) as total_points,       -- Add this line for total points
+  SUM(ast) as total_assists,     -- Add this line for total assists
+  SUM(reb) as total_rebounds    -- Add this line for total rebounds
+FROM player_seasons
+WHERE team_abbreviation = $1
+GROUP BY team_abbreviation, team_name
       `,
       [id]
     );
