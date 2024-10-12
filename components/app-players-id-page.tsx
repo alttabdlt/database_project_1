@@ -22,7 +22,9 @@ type PlayerSeasonStats = {
 };
 
 type PlayerApiResponse = {
+  playerid: number;
   player_name: string;
+  photo_url: string;
   draft_year: number | null;
   draft_round: number | null;
   draft_number: number | null;
@@ -89,8 +91,21 @@ export function Page() {
       </header>
 
       <main className="container mx-auto px-4 py-12">
+        <div className="flex items-center justify-center mb-12">
+          {/* Display player's image */}
+          {player.photo_url && (
+            <img
+              src={player.photo_url}
+              alt={`${player.player_name}'s photo`}
+              className="w-32 h-32 rounded-full object-cover mr-4" // Adjust size and styling as needed
+            />
+          )}
+          <h1 className="text-5xl font-bold text-center text-[#17408B]">
+            {player.playerid}
+          </h1>
+        </div>
         <h1 className="text-5xl font-bold text-center mb-12 text-[#17408B]">{player.player_name}</h1>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           <Card className="bg-white border-[#17408B]">
             <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
