@@ -21,6 +21,7 @@
     "clsx": "^2.1.1",
     "csv-parse": "^5.5.6",
     "csv-parser": "^3.0.0",
+    "dotenv": "^16.4.5",
     "framer-motion": "^11.7.0",
     "lucide-react": "^0.446.0",
     "mysql2": "^3.11.3",
