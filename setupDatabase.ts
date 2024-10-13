@@ -1,6 +1,7 @@
-require('dotenv').config();
-const { Pool } = require("pg");
-import pg from 'pg';
+import dotenv from 'dotenv';
+dotenv.config();
+
+import { Pool, PoolClient } from 'pg';
 
 import fs from 'fs';
 import { parse } from 'csv-parse';
@@ -10,7 +11,7 @@ const dbConfig = new Pool({
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
 });
 
 interface CsvRow {
@@ -64,6 +65,12 @@ interface TeamStatsRow {
   championships: string;
 }
 
+interface PlayerCsvRow {
+  playerid: string;
+  fname: string;
+  lname: string;
+}
+
 function parseNumeric(value: string): number | null {
   if (value === '' || value.toLowerCase() === 'nan') {
     return null;
@@ -73,7 +80,7 @@ function parseNumeric(value: string): number | null {
 }
 
 async function setupDatabase() {
-  const client = new pg.Client(dbConfig);
+  const client: PoolClient = await dbConfig.connect();
   await client.connect();
 
   try {
@@ -154,9 +161,22 @@ async function setupDatabase() {
     if (!fs.existsSync('all_seasons_1.csv')) {
       console.error('CSV file not found');
       process.exit(1);
-    }    
+    }
     const fileStream = fs.createReadStream('all_seasons_1.csv');
     const csvStream = fileStream.pipe(parser);
+    const playersParser = parse({ columns: true });
+    const playersFileStream = fs.createReadStream('players.csv');
+    const playersCsvStream = playersFileStream.pipe(playersParser);
+
+    for await (const playerRow of playersCsvStream) {
+      const fullName = `${playerRow.fname} ${playerRow.lname}`;
+      const insertPlayerQuery = `
+        INSERT INTO players (playerid, player_name)
+        VALUES ($1, $2)
+        ON CONFLICT (playerid) DO NOTHING
+      `;
+      await client.query(insertPlayerQuery, [parseInt(playerRow.playerid), fullName]);
+    }
 
     let batch: CsvRow[] = [];
     const batchSize = 100;
@@ -165,6 +185,7 @@ async function setupDatabase() {
       batch.push(row);
       if (batch.length >= batchSize) {
         await processBatch(client, batch);
+
         batch = [];
       }
     }
@@ -212,7 +233,9 @@ async function setupDatabase() {
   } catch (err) {
     console.error('Error during setup:', err);
   } finally {
-    await client.end(); // Close the client connection
+    client.release(); // Close the client connection
+
+
   }
 }
 
