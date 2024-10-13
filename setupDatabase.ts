@@ -86,8 +86,9 @@ async function setupDatabase() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS teams (
         id SERIAL PRIMARY KEY,
-        team_abbreviation VARCHAR(3) UNIQUE,
-        team_name VARCHAR(255) UNIQUE NOT NULL
+        team_abbreviation VARCHAR(10) UNIQUE NOT NULL,
+        team_name VARCHAR(255) NOT NULL,
+        franchise_id INTEGER REFERENCES franchises(id)
       )
     `);
 
@@ -264,30 +265,145 @@ async function importPlayers(client: pg.Client) {
 }
 
 async function processTeamStats(client: pg.Client) {
-  const fileStream = fs.createReadStream('/Users/axel/Desktop/Personal Projects/nba-comparison-project-1/team_stats.csv');
-  const parser = parse({ columns: true, skip_empty_lines: true });
+  const fileStream = fs.createReadStream('team_stats.csv');
+  const parser = parse({
+    columns: (header) => header.map((col: string) => col.trim()),
+    skip_empty_lines: true,
+    trim: true,
+    bom: true,
+  });
   const csvStream = fileStream.pipe(parser);
 
-  for await (const row of csvStream) {
-    // Insert or get franchise
-    const franchiseResult = await client.query(
-      'INSERT INTO franchises (franchise_name, league) VALUES ($1, $2) ON CONFLICT (franchise_name) DO UPDATE SET franchise_name = EXCLUDED.franchise_name RETURNING id',
-      [row.Franchise, row.Lg]
-    );
-    const franchiseId = franchiseResult.rows[0].id;
+  // Updated teamAbbreviations with historical franchises
+  const teamAbbreviations: { [key: string]: string } = {
+    // Existing teams
+    'Atlanta Hawks': 'ATL',
+    'Boston Celtics': 'BOS',
+    'Brooklyn Nets': 'BKN',
+    'Charlotte Hornets': 'CHA',
+    'Chicago Bulls': 'CHI',
+    'Cleveland Cavaliers': 'CLE',
+    'Dallas Mavericks': 'DAL',
+    'Denver Nuggets': 'DEN',
+    'Detroit Pistons': 'DET',
+    'Golden State Warriors': 'GSW',
+    'Houston Rockets': 'HOU',
+    'Indiana Pacers': 'IND',
+    'Los Angeles Clippers': 'LAC',
+    'Los Angeles Lakers': 'LAL',
+    'Memphis Grizzlies': 'MEM',
+    'Miami Heat': 'MIA',
+    'Milwaukee Bucks': 'MIL',
+    'Minnesota Timberwolves': 'MIN',
+    'New Orleans Pelicans': 'NOP',
+    'New York Knicks': 'NYK',
+    'Oklahoma City Thunder': 'OKC',
+    'Orlando Magic': 'ORL',
+    'Philadelphia 76ers': 'PHI',
+    'Phoenix Suns': 'PHX',
+    'Portland Trail Blazers': 'POR',
+    'Sacramento Kings': 'SAC',
+    'San Antonio Spurs': 'SAS',
+    'Toronto Raptors': 'TOR',
+    'Utah Jazz': 'UTA',
+    'Washington Wizards': 'WAS',
+    
+    // Historical franchises
+    'Texas Chaparrals': 'TEX',
+    'Dallas Chaparrals': 'DLC',
+    'New Orleans Jazz': 'NOJ',
+    'Washington Bullets': 'WSB',
+    'Capital Bullets': 'CAP',
+    'Baltimore Bullets': 'BAL',
+    'Chicago Zephyrs': 'CHZ',
+    'Chicago Packers': 'CHP',
+    'Denver Rockets': 'DEN',
+    'New Jersey Americans': 'NJN',
+    'Rochester Royals': 'ROC',
+    'Seattle SuperSonics': 'SEA',
+    'San Diego Rockets': 'SDR',
+    'St. Louis Hawks': 'STL',
+    'Milwaukee Hawks': 'MIL',
+    'Tri-Cities Blackhawks': 'TRC',
+    'New Jersey Nets': 'NJN',
+    'New York Nets': 'NYN',
+    'Charlotte Bobcats': 'CHA',
+    'Fort Wayne Pistons': 'FNP',
+    'San Francisco Warriors': 'SFW',
+    'Philadelphia Warriors': 'PHW',
+    'San Diego Clippers': 'SDC',
+    'Buffalo Braves': 'BUF',
+    'Minneapolis Lakers': 'MLK',
+    'Vancouver Grizzlies': 'VAN',
+    'NO/Oklahoma City Hornets': 'NOK',
+    'New Orleans/Oklahoma City Hornets': 'NOK',
+    'Syracuse Nationals': 'SYR',
+    'Kansas City Kings': 'KCK',
+    'Kansas City-Omaha Kings': 'KCO',
+    'Cincinnati Royals': 'CIN',
+    // Add any other missing franchises
+  };
 
-    // Insert team_stats
-    await client.query(`
-      INSERT INTO team_stats (
-        franchise_id, from_year, to_year, years, games, wins, losses,
-        win_loss_percentage, playoffs, division_titles, conference_titles, championships
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-    `, [
-      franchiseId, parseInt(row.From.split('-')[0]), parseInt(row.To.split('-')[0]),
-      parseInt(row.Yrs), parseInt(row.G), parseInt(row.W), parseInt(row.L),
-      parseFloat(row['W/L%']), parseInt(row.Plyfs), parseInt(row.Div),
-      parseInt(row.Conf), parseInt(row.Champ)
-    ]);
+  for await (const row of csvStream) {
+    console.log('Row keys:', Object.keys(row)); // Debugging line
+
+    try {
+      const franchiseName = row['Franchise'];
+      if (!franchiseName) {
+        console.warn(`Franchise name is undefined in row:`, row);
+        continue; // Skip if franchiseName is undefined
+      }
+
+      const team_abbreviation = teamAbbreviations[franchiseName];
+
+      if (!team_abbreviation) {
+        console.warn(`No abbreviation found for franchise: ${franchiseName}`);
+        continue; // Skip if abbreviation is not found
+      }
+
+      // Insert or get franchise
+      const franchiseResult = await client.query(
+        'INSERT INTO franchises (franchise_name, league) VALUES ($1, $2) ON CONFLICT (franchise_name) DO UPDATE SET league = EXCLUDED.league RETURNING id',
+        [franchiseName, row['Lg']]
+      );
+      const franchiseId = franchiseResult.rows[0].id;
+
+      // Insert or update team
+      await client.query(
+        `INSERT INTO teams (team_abbreviation, team_name, franchise_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (team_abbreviation) DO UPDATE SET
+           team_name = EXCLUDED.team_name,
+           franchise_id = EXCLUDED.franchise_id`,
+        [team_abbreviation, franchiseName, franchiseId]
+      );
+
+      // Insert team_stats
+      await client.query(
+        `INSERT INTO team_stats (
+          franchise_id, from_year, to_year, years, games, wins, losses,
+          win_loss_percentage, playoffs, division_titles, conference_titles, championships
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          franchiseId,
+          parseInt(row['From'].split('-')[0]),
+          parseInt(row['To'].split('-')[0]),
+          parseInt(row['Yrs']),
+          parseInt(row['G']),
+          parseInt(row['W']),
+          parseInt(row['L']),
+          parseFloat(row['W/L%']),
+          parseInt(row['Plyfs']),
+          parseInt(row['Div']),
+          parseInt(row['Conf']),
+          parseInt(row['Champ']),
+        ]
+      );
+
+      console.log(`Processed team: ${franchiseName}`);
+    } catch (error) {
+      console.error(`Error processing team ${row['Franchise']}:`, error);
+    }
   }
 }
 

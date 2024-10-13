@@ -18,7 +18,10 @@ export async function GET(
         AVG(ps.player_weight) as avg_weight,
         AVG(ps.age) as avg_age,
         AVG(ps.player_height) as avg_height,
-        SUM(ps.gp) as total_gp
+        SUM(ps.games_played) as total_gp,
+        SUM(ps.pts) as total_points,
+        SUM(ps.ast) as total_assists,
+        SUM(ps.reb) as total_rebounds
       FROM teams t
       JOIN player_seasons ps ON t.id = ps.team_id
       WHERE t.team_abbreviation = $1
@@ -47,7 +50,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       UPDATE teams
       SET team_name = $1
       WHERE team_abbreviation = $2
-      RETURNING *
+      RETURNING team_abbreviation, team_name
     `
     const values = [data.team_name, id]
     const { rows } = await pool.query(query, values)
@@ -67,10 +70,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   const id = params.id
 
   try {
+    // First, delete related records in player_seasons
+    await pool.query('DELETE FROM player_seasons WHERE team_id = (SELECT id FROM teams WHERE team_abbreviation = $1)', [id])
+
+    // Then delete the team
     const query = `
       DELETE FROM teams
       WHERE team_abbreviation = $1
-      RETURNING *
+      RETURNING team_abbreviation
     `
     const { rows } = await pool.query(query, [id])
 

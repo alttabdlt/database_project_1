@@ -31,9 +31,9 @@ type TeamApiResponse = {
   performance: TeamPerformanceApiResponse[];
   team_name: string;
   avg_weight: number;
-  avg_age: number;
+  avg_age: string;  // Changed from number to string
   avg_height: number;
-  total_gp: number;
+  total_gp: string;  // Changed from number to string
   total_points: number;
   total_assists: number;
   total_rebounds: number;
@@ -86,6 +86,7 @@ export function Page() {
 
       setAvailableYears(Array.from(years).sort().reverse());
       setTeam({ ...teamData, players: playersData });
+      console.log('Team data:', { ...teamData, players: playersData });
     } catch (error) {
       console.error('Error fetching team data:', error);
       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
@@ -137,10 +138,10 @@ export function Page() {
           </CardHeader>
           <CardContent className="pt-4 space-y-2">
             <p><strong>Abbreviation:</strong> {team.team_abbreviation}</p>
-            <p><strong>Average Weight:</strong> {team.avg_weight?.toFixed(1)} kg</p>
-            <p><strong>Average Height:</strong> {team.avg_height?.toFixed(1)} cm</p>
-            <p><strong>Average Age:</strong> {team.avg_age?.toFixed(1)} years</p>
-            <p><strong>Total Games Played:</strong> {team.total_gp}</p>
+            <p><strong>Average Weight:</strong> {team.avg_weight ? `${team.avg_weight.toFixed(1)} kg` : 'N/A'}</p>
+            <p><strong>Average Height:</strong> {team.avg_height ? `${team.avg_height.toFixed(1)} cm` : 'N/A'}</p>
+            <p><strong>Average Age:</strong> {team.avg_age ? `${parseFloat(team.avg_age).toFixed(1)} years` : 'N/A'}</p>
+            <p><strong>Total Games Played:</strong> {team.total_gp || 'N/A'}</p>
           </CardContent>
         </Card>
 
@@ -200,9 +201,9 @@ export function Page() {
 
             {/* Team statistics below player roster */}
             <div className="mt-8 space-y-2">
-              <p><strong>Total Points Scored:</strong> {team.total_points?.toFixed(1)}</p>
-              <p><strong>Total Assists:</strong> {team.total_assists?.toFixed(1)}</p>
-              <p><strong>Total Rebounds:</strong> {team.total_rebounds?.toFixed(1)}</p>
+              <p><strong>Total Points Scored:</strong> {team.total_points ? team.total_points.toFixed(1) : 'N/A'}</p>
+              <p><strong>Total Assists:</strong> {team.total_assists ? team.total_assists.toFixed(1) : 'N/A'}</p>
+              <p><strong>Total Rebounds:</strong> {team.total_rebounds ? team.total_rebounds.toFixed(1) : 'N/A'}</p>
             </div>
           </CardContent>
         </Card>

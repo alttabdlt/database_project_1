@@ -27,6 +27,8 @@ import {
 } from './ui/table'
 import { Checkbox } from './ui/checkbox'
 import React from 'react'
+import { Slider } from "./ui/slider"
+import { Label } from "./ui/label"
 
 type Player = {
   player_name: string
@@ -70,8 +72,16 @@ const playerAttributes = [
 ]
 
 const teamAttributes = [
-  'team_abbreviation', 'team_name', 'Franchise', 'Lg', 'From', 'To', 'Yrs',
-  'G', 'W', 'L', 'W/L%', 'Plyfs', 'Div', 'Conf', 'Champ'
+  'team_abbreviation',
+  'team_name',
+  'wins',
+  'losses',
+  'win_loss_percentage',
+  'playoffs',
+  'division_titles',
+  'conference_titles',
+  'championships',
+  'years'
 ]
 
 const AttributeSelect = ({ 
@@ -82,23 +92,32 @@ const AttributeSelect = ({
   entity: string; 
   selectedAttributes: string[]; 
   setSelectedAttributes: (value: string[]) => void;
-}) => (
-  <Select
-    value={selectedAttributes.join(',')}
-    onValueChange={(value) => setSelectedAttributes(value.split(',').filter(Boolean))}
-  >
-    <SelectTrigger className="w-full bg-white text-[#17408B]">
-      <SelectValue placeholder="Select Attributes" />
-    </SelectTrigger>
-    <SelectContent>
-      {(entity === 'Player' ? playerAttributes : teamAttributes).map((attr) => (
-        <SelectItem key={attr} value={attr}>
-          {attr}
-        </SelectItem>
+}) => {
+  const handleValueChange = (value: string) => {
+    if (selectedAttributes.includes(value)) {
+      setSelectedAttributes(selectedAttributes.filter((attr: string) => attr !== value));
+    } else {
+      setSelectedAttributes([...selectedAttributes, value]);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {(entity === 'Player' ? playerAttributes : teamAttributes).map((attr: string) => (
+        <div key={attr} className="flex items-center">
+          <Checkbox
+            id={attr}
+            checked={selectedAttributes.includes(attr)}
+            onCheckedChange={() => handleValueChange(attr)}
+          />
+          <label htmlFor={attr} className="ml-2">
+            {attr}
+          </label>
+        </div>
       ))}
-    </SelectContent>
-  </Select>
-)
+    </div>
+  );
+};
 
 export function CrudInterface() {
   const [crudAction, setCrudAction] = useState<string>('Create')
@@ -116,6 +135,11 @@ export function CrudInterface() {
   const [sqlQuery, setSqlQuery] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [selectedAttributes, setSelectedAttributes] = useState<string[]>([])
+  const [topN, setTopN] = useState<number>(10)
+  const [sortBy, setSortBy] = useState<string>('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [fromYear, setFromYear] = useState<number>(1946)
+  const [toYear, setToYear] = useState<number>(2023)
 
   useEffect(() => {
     fetchPlayers()
@@ -189,6 +213,7 @@ export function CrudInterface() {
     setPlayerFormData({})
     setTeamFormData({})
     setRetrievedData(null)
+    setSqlQuery('')  // Add this line to clear the SQL query
   }
 
   const handlePlayerFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -247,7 +272,7 @@ export function CrudInterface() {
           body: JSON.stringify({ players: selectedItems, query }),
         })
       } else if (crudAction === 'Retrieve' && selectedItems.length > 0) {
-        query = `SELECT * FROM player_seasons WHERE player_name IN (${selectedItems.map((_, i) => `$${i + 1}`).join(', ')})`
+        query = `SELECT ${selectedAttributes.join(', ')} FROM players WHERE player_name IN (${selectedItems.map((_, i) => `$${i + 1}`).join(', ')}) ORDER BY ${sortBy} ${sortOrder} LIMIT ${topN}`
         response = await fetch('/api/players/retrieve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -277,9 +302,32 @@ export function CrudInterface() {
     try {
       setIsLoading(true)
       let response
-      let query = ''
-      if (crudAction === 'Create') {
-        query = `INSERT INTO teams (${Object.keys(teamFormData).join(', ')}) VALUES (${Object.values(teamFormData).map((_, i) => `$${i + 1}`).join(', ')})`
+      if (crudAction === 'Retrieve') {
+        response = await fetch('/api/teams/retrieve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            teams: selectedItems,
+            attributes: selectedAttributes,
+            topN,
+            sortBy,
+            sortOrder,
+            fromYear,
+            toYear,
+          }),
+        })
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Retrieved data:', data) // Add this line for debugging
+          setRetrievedData(data.results as Team[])
+          setSqlQuery(data.query)
+        } else {
+          const errorData = await response.json()
+          console.error('Error response:', errorData) // Add this line for debugging
+          throw new Error('Failed to retrieve teams')
+        }
+      } else if (crudAction === 'Create') {
+        const query = `INSERT INTO teams (${Object.keys(teamFormData).join(', ')}) VALUES (${Object.values(teamFormData).map((_, i) => `$${i + 1}`).join(', ')})`
         response = await fetch('/api/teams', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -287,37 +335,22 @@ export function CrudInterface() {
         })
       } else if (crudAction === 'Update' && selectedItems.length > 0) {
         const setClause = Object.keys(teamFormData).map((key, i) => `${key} = $${i + 1}`).join(', ')
-        query = `UPDATE teams SET ${setClause} WHERE Franchise IN (${selectedItems.map((_, i) => `$${Object.keys(teamFormData).length + i + 1}`).join(', ')})`
+        const query = `UPDATE teams SET ${setClause} WHERE Franchise IN (${selectedItems.map((_, i) => `$${Object.keys(teamFormData).length + i + 1}`).join(', ')})`
         response = await fetch('/api/teams', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ teams: selectedItems, data: teamFormData, query }),
         })
       } else if (crudAction === 'Delete' && selectedItems.length > 0) {
-        query = `DELETE FROM teams WHERE Franchise IN (${selectedItems.map((_, i) => `$${i + 1}`).join(', ')})`
+        const query = `DELETE FROM teams WHERE Franchise IN (${selectedItems.map((_, i) => `$${i + 1}`).join(', ')})`
         response = await fetch('/api/teams', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ teams: selectedItems, query }),
         })
-      } else if (crudAction === 'Retrieve' && selectedItems.length > 0) {
-        query = `SELECT ${selectedAttributes.length > 0 ? selectedAttributes.join(', ') : '*'} FROM teams WHERE team_abbreviation IN (${selectedItems.map((_, i) => `$${i + 1}`).join(', ')})`
-        response = await fetch('/api/teams/retrieve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            teams: selectedItems, 
-            query,
-            attributes: selectedAttributes
-          }),
-        })
       }
       if (!response?.ok) throw new Error('Failed to perform action')
-      if (crudAction === 'Retrieve') {
-        const data = await response.json()
-        setRetrievedData(data.results as Team[])
-        setSqlQuery(data.query)
-      } else {
+      if (crudAction !== 'Retrieve') {
         alert('Action completed successfully')
         resetForm()
         fetchTeams()
@@ -512,6 +545,36 @@ export function CrudInterface() {
                   selectedAttributes={selectedAttributes} 
                   setSelectedAttributes={setSelectedAttributes} 
                 />
+              </div>
+            )}
+
+            {crudAction === 'Retrieve' && selectedAttributes.includes('years') && (
+              <div className="mt-4">
+                <h3 className="text-lg font-medium text-[#17408B] mb-2">Year Range</h3>
+                <div className="flex items-center space-x-4">
+                  <div>
+                    <Label htmlFor="fromYear">From</Label>
+                    <Input
+                      id="fromYear"
+                      type="number"
+                      value={fromYear}
+                      onChange={(e) => setFromYear(Number(e.target.value))}
+                      min={1946}
+                      max={2023}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="toYear">To</Label>
+                    <Input
+                      id="toYear"
+                      type="number"
+                      value={toYear}
+                      onChange={(e) => setToYear(Number(e.target.value))}
+                      min={1946}
+                      max={2023}
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
