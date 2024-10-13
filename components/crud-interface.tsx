@@ -126,8 +126,38 @@ export function CrudInterface() {
   const [teams, setTeams] = useState<Team[]>([])
   const [selectedPlayer, setSelectedPlayer] = useState<string>('')
   const [selectedTeam, setSelectedTeam] = useState<string>('')
-  const [playerFormData, setPlayerFormData] = useState<Partial<Player>>({})
-  const [teamFormData, setTeamFormData] = useState<Partial<Team>>({})
+  const [playerFormData, setPlayerFormData] = useState({
+    player_name: '',
+    team_abbreviation: '',
+    team_name: '',
+    season: '',
+    age: null,
+    player_height: null,
+    player_weight: null,
+    college: '',
+    country: '',
+    draft_year: null,
+    draft_round: null,
+    draft_number: null,
+    games_played: null, // Add this line
+    pts: null,
+    reb: null,
+    ast: null,
+  })
+  const [teamFormData, setTeamFormData] = useState({
+    team_abbreviation: '',
+    team_name: '',
+    franchise_id: null,
+    years: null,
+    games: null,
+    wins: null,
+    losses: null,
+    win_loss_percentage: null,
+    playoffs: null,
+    division_titles: null,
+    conference_titles: null,
+    championships: null,
+  })
   const [retrievedData, setRetrievedData] = useState<(Player | Team)[] | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -198,50 +228,82 @@ export function CrudInterface() {
   }, [teams, searchTerm])
 
   const handleCrudActionChange = (value: string) => {
-    setCrudAction(value)
-    resetForm()
-  }
+    setCrudAction(value);
+    resetForm();
+  };
 
   const handleEntityChange = (value: string) => {
-    setEntity(value)
-    resetForm()
-  }
+    setEntity(value);
+    resetForm();
+  };
 
   const resetForm = () => {
-    setSelectedPlayer('')
-    setSelectedTeam('')
-    setPlayerFormData({})
-    setTeamFormData({})
-    setRetrievedData(null)
-    setSqlQuery('')
-    setSelectedItems([])  // Clear selected items
-    setSelectedAttributes([])  // Clear selected attributes
-    setTopN('')  // Reset topN
-    setSortBy('')  // Reset sortBy
-    setSortOrder('desc')  // Reset sortOrder to default
-    setFromYear(1946)  // Reset fromYear to default
-    setToYear(2023)  // Reset toYear to default
-    setSearchTerm('')  // Clear search term
-  }
+    setSelectedPlayer('');
+    setSelectedTeam('');
+    setPlayerFormData({
+      player_name: '',
+      team_abbreviation: '',
+      team_name: '',
+      season: '',
+      age: null,
+      player_height: null,
+      player_weight: null,
+      college: '',
+      country: '',
+      draft_year: null,
+      draft_round: null,
+      draft_number: null,
+      games_played: null,
+      pts: null,
+      reb: null,
+      ast: null,
+    });
+    setTeamFormData({
+      team_abbreviation: '',
+      team_name: '',
+      franchise_id: null,
+      years: null,
+      games: null,
+      wins: null,
+      losses: null,
+      win_loss_percentage: null,
+      playoffs: null,
+      division_titles: null,
+      conference_titles: null,
+      championships: null,
+    });
+    setRetrievedData(null);
+    setSqlQuery('');
+    setSelectedItems([]);
+    setSelectedAttributes([]);
+    setTopN('');
+    setSortBy('');
+    setSortOrder('desc');
+    setFromYear(1946);
+    setToYear(2023);
+    setSearchTerm('');
+  };
 
   const handlePlayerFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPlayerFormData({
-      ...playerFormData,
-      [e.target.name]: e.target.value,
-    })
+    const { name, value, type } = e.target;
+    setPlayerFormData((prevData) => ({
+      ...prevData,
+      [name]: type === 'number' ? (value ? Number(value) : null) : value,
+    }));
   }
 
   const handleTeamFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTeamFormData({
-      ...teamFormData,
-      [e.target.name]: e.target.value,
-    })
+    const { name, value, type } = e.target;
+    setTeamFormData((prevData) => ({
+      ...prevData,
+      [name]: type === 'number' ? (value ? Number(value) : null) : value,
+    }));
   }
 
   const handleItemSelect = (item: string) => {
-    setSelectedItems(prev => 
-      prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
-    )
+    setSelectedItems((prev) =>
+      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
+    );
   }
 
   const handleSubmit = async () => {
@@ -295,121 +357,159 @@ export function CrudInterface() {
 
   const handlePlayerSubmit = async () => {
     try {
-      setIsLoading(true)
       let response
-      let query = ''
       if (crudAction === 'Create') {
-        query = `INSERT INTO player_seasons (${Object.keys(playerFormData).join(', ')}) VALUES (${Object.values(playerFormData).map((_, i) => `$${i + 1}`).join(', ')})`
-        response = await fetch('/api/players', {
+        response = await fetch('/api/players/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ players: [playerFormData], query }),
+          body: JSON.stringify(playerFormData),
         })
       } else if (crudAction === 'Update' && selectedItems.length > 0) {
-        const setClause = Object.keys(playerFormData).map((key, i) => `${key} = $${i + 1}`).join(', ')
-        query = `UPDATE player_seasons SET ${setClause} WHERE player_name IN (${selectedItems.map((_, i) => `$${Object.keys(playerFormData).length + i + 1}`).join(', ')})`
-        response = await fetch('/api/players', {
+        response = await fetch('/api/players/update', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ players: selectedItems, data: playerFormData, query }),
+          body: JSON.stringify({ players: selectedItems, data: playerFormData }),
         })
       } else if (crudAction === 'Delete' && selectedItems.length > 0) {
-        query = `DELETE FROM player_seasons WHERE player_name IN (${selectedItems.map((_, i) => `$${i + 1}`).join(', ')})`
-        response = await fetch('/api/players', {
+        response = await fetch('/api/players/delete', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ players: selectedItems, query }),
+          body: JSON.stringify({ players: selectedItems }),
         })
-      } else if (crudAction === 'Retrieve' && selectedItems.length > 0) {
-        query = `SELECT ${selectedAttributes.join(', ')} FROM players WHERE player_name IN (${selectedItems.map((_, i) => `$${i + 1}`).join(', ')}) ORDER BY ${sortBy} ${sortOrder} LIMIT ${topN}`
-        response = await fetch('/api/players/retrieve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ players: selectedItems, query }),
-        })
-        if (response.ok) {
-          const data = await response.json()
-          setRetrievedData(data.results as (Player | Team)[])
-          setSqlQuery(data.query)
-        }
       }
+      
       if (!response?.ok) throw new Error('Failed to perform action')
-      if (crudAction !== 'Retrieve') {
-        alert('Action completed successfully')
-        resetForm()
-        fetchPlayers()
-      }
+      
+      const result = await response.json()
+      alert(result.message)
+      resetForm()
+      fetchPlayers()
     } catch (error) {
       console.error('Error performing action:', error)
       setError('An error occurred')
-    } finally {
-      setIsLoading(false)
     }
   }
 
   const handleTeamSubmit = async () => {
     try {
-      setIsLoading(true)
       let response
-      if (crudAction === 'Retrieve') {
-        response = await fetch('/api/teams/retrieve', {
+      if (crudAction === 'Create') {
+        response = await fetch('/api/teams/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            teams: selectedItems,
-            attributes: selectedAttributes,
-            topN,
-            sortBy,
-            sortOrder,
-            fromYear,
-            toYear,
-          }),
-        })
-        if (response.ok) {
-          const data = await response.json()
-          console.log('Retrieved data:', data) // Add this line for debugging
-          setRetrievedData(data.results as Team[])
-          setSqlQuery(data.query)
-        } else {
-          const errorData = await response.json()
-          console.error('Error response:', errorData) // Add this line for debugging
-          throw new Error('Failed to retrieve teams')
-        }
-      } else if (crudAction === 'Create') {
-        const query = `INSERT INTO teams (${Object.keys(teamFormData).join(', ')}) VALUES (${Object.values(teamFormData).map((_, i) => `$${i + 1}`).join(', ')})`
-        response = await fetch('/api/teams', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teams: [teamFormData], query }),
+          body: JSON.stringify(teamFormData),
         })
       } else if (crudAction === 'Update' && selectedItems.length > 0) {
-        const setClause = Object.keys(teamFormData).map((key, i) => `${key} = $${i + 1}`).join(', ')
-        const query = `UPDATE teams SET ${setClause} WHERE Franchise IN (${selectedItems.map((_, i) => `$${Object.keys(teamFormData).length + i + 1}`).join(', ')})`
-        response = await fetch('/api/teams', {
+        response = await fetch('/api/teams/update', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teams: selectedItems, data: teamFormData, query }),
+          body: JSON.stringify({ teams: selectedItems, data: teamFormData }),
         })
       } else if (crudAction === 'Delete' && selectedItems.length > 0) {
-        const query = `DELETE FROM teams WHERE Franchise IN (${selectedItems.map((_, i) => `$${i + 1}`).join(', ')})`
-        response = await fetch('/api/teams', {
+        response = await fetch('/api/teams/delete', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teams: selectedItems, query }),
+          body: JSON.stringify({ teams: selectedItems }),
         })
       }
+      
       if (!response?.ok) throw new Error('Failed to perform action')
-      if (crudAction !== 'Retrieve') {
-        alert('Action completed successfully')
-        resetForm()
-        fetchTeams()
-      }
+      
+      const result = await response.json()
+      alert(result.message)
+      resetForm()
+      fetchTeams()
     } catch (error) {
       console.error('Error performing action:', error)
       setError('An error occurred')
-    } finally {
-      setIsLoading(false)
     }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
+    setPlayerFormData((prevData) => ({
+      ...prevData,
+      [name]: type === 'number' ? (value !== '' ? Number(value) : null) : value,
+    }));
+  }
+
+  const handleCreateTeam = async () => {
+    try {
+      const response = await fetch('/api/teams/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(teamFormData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create team');
+      }
+
+      const result = await response.json();
+      alert(result.message);
+    } catch (error) {
+      console.error('Error creating team:', error);
+    }
+  };
+
+  const handleUpdateTeam = async () => {
+    try {
+      const response = await fetch('/api/teams/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teams: selectedTeam, data: teamFormData }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update team');
+      }
+
+      const result = await response.json();
+      alert(result.message);
+    } catch (error) {
+      console.error('Error updating team:', error);
+    }
+  };
+
+  const handleDeleteTeam = async () => {
+    try {
+      const response = await fetch('/api/teams/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teams: selectedTeam }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete team');
+      }
+
+      const result = await response.json();
+      alert(result.message);
+    } catch (error) {
+      console.error('Error deleting team:', error);
+    }
+  };
+
+  const handleRetrieve = async () => {
+    const payload = {
+      teams: selectedItems,  // Array of team abbreviations
+      attributes: selectedAttributes,
+      topN,
+      sortBy,
+      sortOrder,
+      fromYear,
+      toYear,
+    }
+
+    const response = await fetch('/api/teams/retrieve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    const data = await response.json()
+    setRetrievedData(data.results)
+    setSqlQuery(data.query)
   }
 
   return (
@@ -491,20 +591,122 @@ export function CrudInterface() {
                 <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {entity === 'Player' ? (
                     <>
-                      <Input name="player_name" placeholder="Player Name" onChange={handlePlayerFormChange} />
-                      <Input name="team_abbreviation" placeholder="Team Abbreviation" onChange={handlePlayerFormChange} />
-                      <Input name="age" placeholder="Age" type="number" onChange={handlePlayerFormChange} />
-                      <Input name="player_height" placeholder="Height" type="number" onChange={handlePlayerFormChange} />
-                      <Input name="player_weight" placeholder="Weight" type="number" onChange={handlePlayerFormChange} />
-                      <Input name="college" placeholder="College" onChange={handlePlayerFormChange} />
-                      <Input name="country" placeholder="Country" onChange={handlePlayerFormChange} />
-                      <Input name="draft_year" placeholder="Draft Year" type="number" onChange={handlePlayerFormChange} />
-                      <Input name="draft_round" placeholder="Draft Round" type="number" onChange={handlePlayerFormChange} />
-                      <Input name="draft_number" placeholder="Draft Number" type="number" onChange={handlePlayerFormChange} />
+                      <Input
+                        name="player_name"
+                        placeholder="Player Name"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="team_abbreviation"
+                        placeholder="Team Abbreviation"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="team_name"
+                        placeholder="Team Name"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="season"
+                        placeholder="Season"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="age"
+                        placeholder="Age"
+                        type="number"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="player_height"
+                        placeholder="Height"
+                        type="number"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="player_weight"
+                        placeholder="Weight"
+                        type="number"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="college"
+                        placeholder="College"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="country"
+                        placeholder="Country"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="draft_year"
+                        placeholder="Draft Year"
+                        type="number"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="draft_round"
+                        placeholder="Draft Round"
+                        type="number"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <Input
+                        name="draft_number"
+                        placeholder="Draft Number"
+                        type="number"
+                        onChange={handlePlayerFormChange}
+                      />
+                      <div>
+                      <Label htmlFor="games_played" className="block text-sm font-medium text-gray-700"></Label>
+                        <Input
+                          id="games_played"
+                          name="games_played"
+                          placeholder="Games Played"
+                          type="number"
+                          value={playerFormData.games_played || ''}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="pts" className="block text-sm font-medium text-gray-700"></Label>
+                        <Input
+                          id="pts"
+                          name="pts"
+                          placeholder="Points"
+                          type="number"
+                          value={playerFormData.pts || ''}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="reb" className="block text-sm font-medium text-gray-700"></Label>
+                        <Input
+                          id="reb"
+                          name="reb"
+                          placeholder="Rebounds"
+                          type="number"
+                          value={playerFormData.reb || ''}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="ast" className="block text-sm font-medium text-gray-700"></Label>
+                        <Input
+                          id="ast"
+                          name="ast"
+                          placeholder="Assists"
+                          type="number"
+                          value={playerFormData.ast || ''}
+                          onChange={handleInputChange}
+                        />
+                      </div>
                     </>
                   ) : (
                     <>
-                      <Input name="Franchise" placeholder="Franchise" onChange={handleTeamFormChange} />
+                      <Input name="team_abbreviation" placeholder="Team Abbreviation" onChange={handleTeamFormChange} />
+                      <Input name="team_name" placeholder="Team Name" onChange={handleTeamFormChange} />
+                      <Input name="franchise_id" placeholder="Franchise ID" type="number" onChange={handleTeamFormChange} />
                       <Input name="Lg" placeholder="League" onChange={handleTeamFormChange} />
                       <Input name="From" placeholder="From Year" type="number" onChange={handleTeamFormChange} />
                       <Input name="To" placeholder="To Year" type="number" onChange={handleTeamFormChange} />
@@ -586,7 +788,7 @@ export function CrudInterface() {
               </div>
             )}
 
-            {(crudAction === 'Update' || crudAction === 'Delete' || crudAction === 'Retrieve') && (
+            {(crudAction === 'Delete' || crudAction === 'Retrieve') && (
               <div className="mt-4">
                 <h3 className="text-lg font-medium text-[#17408B] mb-2">Select Attributes</h3>
                 <AttributeSelect 
