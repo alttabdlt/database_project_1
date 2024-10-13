@@ -38,3 +38,34 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+
+sometimes nba_salaries doesnt load all rows, please create table using this, then import data from csv
+
+CREATE TABLE nba_salaries (
+    "rank" INTEGER,
+    "name" TEXT,
+    "position" TEXT,
+    "team" TEXT,
+    "salary" NUMERIC,
+    "season" INTEGER
+);
+
+
+sometimes nba_team_stats doesnt load all rows, please create table using this, then import data from csv
+
+CREATE TABLE nba_team_stats (
+    franchise VARCHAR(100),
+    league VARCHAR(10),
+    from_years VARCHAR(10),
+    to_years VARCHAR(10),
+    number_of_years INT,
+    games_played INT,
+    games_wins INT,
+    games_losses INT,
+    win_loss_percentage DECIMAL(5,3),
+    playoff_appearances INT,
+    division_titles INT,
+    conference_titles INT,
+    championships INT
+);
+

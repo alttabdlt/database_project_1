@@ -57,6 +57,7 @@ export function Page() {
   const fetchTeamData = async (teamId: string) => {
     try {
       setLoading(true);
+      // Fetch team data from the backend
       const teamResponse = await fetch(`/api/teams/${encodeURIComponent(teamId)}`);
       if (!teamResponse.ok) {
         if (teamResponse.status === 404) {
@@ -65,7 +66,9 @@ export function Page() {
         throw new Error(`HTTP error! status: ${teamResponse.status}`);
       }
       const teamData = await teamResponse.json();
-
+      console.log('Team Data:', teamData);
+      
+      // Fetch players data for the team
       const playersResponse = await fetch(`/api/teams/${encodeURIComponent(teamId)}/players`);
       if (!playersResponse.ok) {
         if (playersResponse.status === 404) {
@@ -74,8 +77,20 @@ export function Page() {
         throw new Error(`HTTP error! status: ${playersResponse.status}`);
       }
       const playersData = await playersResponse.json();
-
-      // Extract unique years from players' seasons
+      console.log(playersData);
+      
+      // Fetch performance data (over the years)
+      const performanceResponse = await fetch(`/api/teams/${encodeURIComponent(teamId)}/performance`);
+      if (!performanceResponse.ok) {
+        if (performanceResponse.status === 404) {
+          throw new Error('Performance data not found');
+        }
+        throw new Error(`HTTP error! status: ${performanceResponse.status}`);
+      }
+      const performanceData = await performanceResponse.json();
+      console.log('Performance Data:', performanceData);
+      
+      // Extract unique years from players' seasons for filtering
       const years = new Set<string>();
       playersData.forEach((player: PlayerApiResponse) => {
         player.seasons.forEach((season) => {
@@ -83,9 +98,18 @@ export function Page() {
           years.add(year);
         });
       });
-
+      
+      // Extract performance and all-time performance data
+      const { performance, all_time_performance } = performanceData;
+  
+      // Update state with the combined data
       setAvailableYears(Array.from(years).sort().reverse());
-      setTeam({ ...teamData, players: playersData });
+      setTeam({
+        ...teamData,
+        players: playersData,
+        performance: performance, // Include performance data
+        all_time_performance: all_time_performance // Include all-time performance data
+      });
     } catch (error) {
       console.error('Error fetching team data:', error);
       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
@@ -93,6 +117,8 @@ export function Page() {
       setLoading(false);
     }
   };
+  
+  
 
   const filteredPlayers = selectedYear
     ? team?.players.filter((player) =>
@@ -198,7 +224,6 @@ export function Page() {
               </TableBody>
             </Table>
 
-            {/* Team statistics below player roster */}
             <div className="mt-8 space-y-2">
               <p><strong>Total Points Scored:</strong> {team.total_points?.toFixed(1)}</p>
               <p><strong>Total Assists:</strong> {team.total_assists?.toFixed(1)}</p>
@@ -207,26 +232,34 @@ export function Page() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-[#17408B] mb-12">
-          <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
-            <CardTitle className="text-2xl font-bold text-white">Team Performance</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={team.performance}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="season" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="wins" stroke="#8884d8" name="Wins" />
-                <Line yAxisId="left" type="monotone" dataKey="losses" stroke="#82ca9d" name="Losses" />
-                <Line yAxisId="right" type="monotone" dataKey="avg_pts" stroke="#ffc658" name="Avg Points" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      {/* Team statistics below player roster */}
+      <Card className="bg-white border-[#17408B] mb-12">
+  <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
+    <CardTitle className="text-2xl font-bold text-white">Team Performance</CardTitle>
+  </CardHeader>
+  <CardContent className="pt-4">
+    <ResponsiveContainer width="100%" height={400}>
+      <LineChart data={team.performance}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="season_range" /> {/* Updated to use season_range */}
+        <YAxis yAxisId="left" />
+        <YAxis yAxisId="right" orientation="right" />
+        <Tooltip />
+        <Legend />
+
+        {/* Games Wins Line */}
+        <Line yAxisId="left" type="monotone" dataKey="games_wins" stroke="#8884d8" name="Wins" />
+
+        {/* Games Losses Line */}
+        <Line yAxisId="left" type="monotone" dataKey="games_losses" stroke="#82ca9d" name="Losses" />
+
+        {/* Win/Loss Percentage Line */}
+        <Line yAxisId="right" type="monotone" dataKey="win_loss_percentage" stroke="#ff7300" name="Win/Loss %" dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  </CardContent>
+</Card>
+
 
         <div className="flex justify-center">
           <Link href={`/teams/compare?team1=${encodeURIComponent(team.team_abbreviation)}`}>

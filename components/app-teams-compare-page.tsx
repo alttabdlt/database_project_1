@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -61,8 +61,10 @@ export function Page() {
 
   useEffect(() => {
     if (selectedTeamIds.length > 0) {
-      fetchSelectedTeamsData()
-      fetchSeasonalPerformance()
+      // Parallelize API calls
+      Promise.all([fetchSelectedTeamsData(), fetchSeasonalPerformance()])
+        .then(() => setLoading(false))
+        .catch((err) => setError(err.message))
     }
   }, [selectedTeamIds])
 
@@ -82,25 +84,29 @@ export function Page() {
 
   const fetchSelectedTeamsData = async () => {
     try {
-      const response = await fetch(`/api/teams/compare?ids=${selectedTeamIds.join(',')}`)
-      if (!response.ok) throw new Error('Failed to fetch selected teams data')
-      const data = await response.json()
-      setSelectedTeamsData(data)
+      const response = await fetch(`/api/teams/compare?ids=${selectedTeamIds.join(',')}`);
+      if (!response.ok) throw new Error('Failed to fetch selected teams data');
+      const data = await response.json();
+  
+      console.log('Selected Teams Data:', data);  // Check if data contains wins/losses
+      setSelectedTeamsData(data);
     } catch (error) {
-      console.error('Error fetching selected teams data:', error)
-      setError('Failed to load team comparison data')
+      console.error('Error fetching selected teams data:', error);
+      setError('Failed to load team comparison data');
     }
-  }
+  };
 
   const fetchSeasonalPerformance = async () => {
     try {
       const performance: { [key: string]: TeamSeasonalPerformanceApiResponse[] } = {}
-      for (const id of selectedTeamIds) {
-        const response = await fetch(`/api/teams/${id}/performance`)
-        if (!response.ok) throw new Error(`Failed to fetch performance data for team ${id}`)
-        const data = await response.json()
-        performance[id] = data
-      }
+      await Promise.all(
+        selectedTeamIds.map(async (id) => {
+          const response = await fetch(`/api/teams/${id}/performance`)
+          if (!response.ok) throw new Error(`Failed to fetch performance data for team ${id}`)
+          const data = await response.json()
+          performance[id] = data
+        })
+      )
       setSeasonalPerformance(performance)
     } catch (error) {
       console.error('Error fetching seasonal performance:', error)
@@ -109,28 +115,42 @@ export function Page() {
   }
 
   const handleTeamSelect = (teamId: string) => {
-    if (selectedTeamIds.includes(teamId)) {
-      setSelectedTeamIds(selectedTeamIds.filter(id => id !== teamId))
-    } else if (selectedTeamIds.length < 2) {
-      setSelectedTeamIds([...selectedTeamIds, teamId])
+    // Prevent adding the same team repeatedly
+    if (!selectedTeamIds.includes(teamId)) {
+      if (selectedTeamIds.length < 2) {
+        setSelectedTeamIds([...selectedTeamIds, teamId]);
+      }
+    } else {
+      // If the team is clicked again, remove it to avoid repetition
+      setSelectedTeamIds(selectedTeamIds.filter(id => id !== teamId));
     }
-  }
+  };
+  
 
-  const getChartData = () => {
-    const seasons = Array.from(new Set(Object.values(seasonalPerformance).flatMap(stats => stats.map(s => s.season))))
+  // Memoize the chart data to avoid re-calculation on every render
+  const chartData = useMemo(() => {
+    const seasons = Array.from(
+      new Set(
+        Object.values(seasonalPerformance)
+          .flatMap(stats => Array.isArray(stats) ? stats.map(s => s.season) : []) // Safeguard check for array
+      )
+    );
+
     return seasons.map(season => {
-      const data: any = { season }
+      const data: any = { season };
       selectedTeamIds.forEach(id => {
-        const teamStats = seasonalPerformance[id]?.find(s => s.season === season)
+        const teamStats = Array.isArray(seasonalPerformance[id])
+          ? seasonalPerformance[id].find(s => s.season === season)
+          : null;
         if (teamStats) {
-          data[`${id}_wins`] = teamStats.wins
-          data[`${id}_losses`] = teamStats.losses
-          data[`${id}_avg_pts`] = teamStats.avg_pts
+          data[`${id}_wins`] = teamStats.wins;
+          data[`${id}_losses`] = teamStats.losses;
+          data[`${id}_avg_pts`] = teamStats.avg_pts;
         }
-      })
-      return data
-    })
-  }
+      });
+      return data;
+    });
+  }, [seasonalPerformance, selectedTeamIds]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>
@@ -158,7 +178,7 @@ export function Page() {
 
       <main className="container mx-auto px-4 py-12">
         <h1 className="text-5xl font-bold text-center mb-12 text-[#17408B]">Team Comparison</h1>
-        
+
         <div className="mb-8">
           <Select onValueChange={handleTeamSelect}>
             <SelectTrigger className="w-full">
@@ -177,8 +197,8 @@ export function Page() {
         {selectedTeamsData.length > 0 && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-              {selectedTeamsData.map(team => (
-                <Card key={team.team_abbreviation} className="bg-white border-[#17408B]">
+              {selectedTeamsData.map((team, index) => (
+                <Card key={`${team.team_abbreviation}-${index}`} className="bg-white border-[#17408B]">
                   <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
                     <CardTitle className="text-2xl font-bold text-white">{team.team_abbreviation}</CardTitle>
                   </CardHeader>
@@ -224,7 +244,7 @@ export function Page() {
               <CardContent className="pt-4">
                 <ResponsiveContainer width="100%" height={400}>
                   <LineChart
-                    data={getChartData()}
+                    data={chartData}  // Use memoized chartData
                     margin={{
                       top: 5,
                       right: 30,
