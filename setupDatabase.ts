@@ -5,7 +5,7 @@ import { parse } from 'csv-parse';
 const dbConfig = {
   host: 'localhost',
   user: 'postgres',
-  password: '1234',
+  password: 'axel',
   database: 'nba_stats',
   port: 5432,
 };
@@ -84,11 +84,11 @@ async function setupDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_season ON player_seasons(season)`);
 
     const parser = parse({ columns: true });
-    if (!fs.existsSync('/Users/nithiyapriyaramesh/Desktop/database_project_1/all_seasons_1.csv')) {
+    if (!fs.existsSync('/Users/axel/Desktop/Personal Projects/nba-comparison-project-1/all_seasons_1.csv')) {
       console.error('CSV file not found');
       process.exit(1);
     }    
-    const fileStream = fs.createReadStream('/Users/nithiyapriyaramesh/Desktop/database_project_1/all_seasons_1.csv');
+    const fileStream = fs.createReadStream('/Users/axel/Desktop/Personal Projects/nba-comparison-project-1/all_seasons_1.csv');
     const csvStream = fileStream.pipe(parser);
 
     let batch: CsvRow[] = [];

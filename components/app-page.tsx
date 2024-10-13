@@ -28,7 +28,7 @@ export function Page() {
           Explore NBA Statistics
         </motion.h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <Link href="/players">
             <Card className="bg-white border-[#17408B] hover:border-[#C9082A] transition-all overflow-hidden group">
               <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
@@ -66,6 +66,16 @@ export function Page() {
               </CardHeader>
               <CardContent className="pt-4">
                 <p className="text-gray-700">Compare statistics between NBA players.</p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/manage-data">
+            <Card className="bg-white border-[#17408B] hover:border-[#C9082A] transition-all overflow-hidden group">
+              <CardHeader className="bg-gradient-to-r from-[#17408B] to-[#1D4F91]">
+                <CardTitle className="text-2xl font-bold text-white">Manage Data</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <p className="text-gray-700">Create, update, or delete NBA data.</p>
               </CardContent>
             </Card>
           </Link>

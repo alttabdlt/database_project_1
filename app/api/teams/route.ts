@@ -12,3 +12,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Error fetching teams' }, { status: 500 })
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const data = await request.json()
+    const { team_abbreviation, team_name } = data
+
+    const query = `
+      INSERT INTO player_seasons (
+        team_abbreviation, 
+        team_name
+      ) VALUES ($1, $2)
+      ON CONFLICT (team_abbreviation) DO NOTHING
+      RETURNING *
+    `
+    const values = [team_abbreviation, team_name]
+    const { rows } = await pool.query(query, values)
+    return NextResponse.json(rows[0], { status: 201 })
+  } catch (error) {
+    console.error('Error creating team:', error)
+    return NextResponse.json({ message: 'Error creating team' }, { status: 500 })
+  }
+}

@@ -41,3 +41,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Error fetching players' }, { status: 500 })
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const data = await request.json()
+    const { player_name, draft_year, team_abbreviation, season } = data
+
+    const query = `
+      INSERT INTO player_seasons (
+        player_name, 
+        draft_year, 
+        team_abbreviation, 
+        season
+      ) VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `
+    const values = [player_name, draft_year, team_abbreviation, season]
+    const { rows } = await pool.query(query, values)
+    return NextResponse.json(rows[0], { status: 201 })
+  } catch (error) {
+    console.error('Error creating player:', error)
+    return NextResponse.json({ message: 'Error creating player' }, { status: 500 })
+  }
+}

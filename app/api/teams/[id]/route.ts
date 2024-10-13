@@ -37,3 +37,50 @@ export async function GET(
     return NextResponse.json({ message: 'Error fetching team data' }, { status: 500 });
   }
 }
+
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  const id = params.id
+  const data = await request.json()
+
+  try {
+    const query = `
+      UPDATE player_seasons
+      SET team_name = $1
+      WHERE team_abbreviation = $2
+      RETURNING *
+    `
+    const values = [data.team_name, id]
+    const { rows } = await pool.query(query, values)
+
+    if (rows.length > 0) {
+      return NextResponse.json(rows[0])
+    } else {
+      return NextResponse.json({ message: 'Team not found' }, { status: 404 })
+    }
+  } catch (error) {
+    console.error('Error updating team:', error)
+    return NextResponse.json({ message: 'Error updating team' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  const id = params.id
+
+  try {
+    const query = `
+      DELETE FROM player_seasons
+      WHERE team_abbreviation = $1
+      RETURNING *
+    `
+    const { rows } = await pool.query(query, [id])
+
+    if (rows.length > 0) {
+      return NextResponse.json({ message: 'Team deleted successfully' })
+    } else {
+      return NextResponse.json({ message: 'Team not found' }, { status: 404 })
+    }
+  } catch (error) {
+    console.error('Error deleting team:', error)
+    return NextResponse.json({ message: 'Error deleting team' }, { status: 500 })
+  }
+}
