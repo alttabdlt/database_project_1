@@ -11,19 +11,19 @@ export async function POST(request: NextRequest) {
 
     const teamsArray = Array.isArray(teams) ? teams : []
     const selectedAttributes = attributes && attributes.length > 0 ? attributes : ['*']
-    const orderClause = sortBy ? `ORDER BY ${sortBy} ${sortOrder || 'ASC'}` : ''
+    const orderClause = sortBy ? `ORDER BY ${sortBy} IS NULL, ${sortBy} ${sortOrder || 'ASC'}` : ''
     const limitClause = topN ? `LIMIT ${topN}` : ''
 
-    const groupByColumns = ['t.team_abbreviation', 't.team_name', 't.id', 'f.id']
+    const groupByColumns = ['t.team_abbreviation', 't.team_name', 't.id', 'ts.championships']
     const aggregateFunctions: AggregateFunction = {
-      'wins': 'SUM(ts.wins)',
-      'losses': 'SUM(ts.losses)',
-      'win_loss_percentage': 'AVG(ts.win_loss_percentage)',
-      'playoffs': 'SUM(ts.playoffs)',
-      'division_titles': 'SUM(ts.division_titles)',
-      'conference_titles': 'SUM(ts.conference_titles)',
-      'championships': 'SUM(ts.championships)',
-      'years': 'COUNT(DISTINCT ts.from_year)'
+      'wins': 'COALESCE(SUM(wins), 0)',
+      'losses': 'COALESCE(SUM(losses), 0)',
+      'win_loss_percentage': 'COALESCE(AVG(win_loss_percentage), 0)',
+      'playoffs': 'COALESCE(SUM(playoffs), 0)',
+      'division_titles': 'COALESCE(SUM(division_titles), 0)',
+      'conference_titles': 'COALESCE(SUM(conference_titles), 0)',
+      'championships': 'COALESCE(SUM(championships), 0)',
+      'years': 'COUNT(DISTINCT from_year)'
     }
 
     const validTeamAttributes = ['team_abbreviation', 'team_name', 'wins', 'losses', 'win_loss_percentage', 'playoffs', 'division_titles', 'conference_titles', 'championships', 'years']
@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
       .concat(selectedAttributes
         .filter((attr: string) => validTeamAttributes.includes(attr))
         .map((attr: string) => {
-          if (attr === '*') return 't.*, f.*, ts.*'
-          if (attr in aggregateFunctions) return `${aggregateFunctions[attr]} as ${attr}`
+          if (attr === '*') return 't.team_abbreviation, t.team_name, ts.*'
+          if (attr in aggregateFunctions) return `ts.${attr}`
           return `t.${attr}`
         })
       )
@@ -42,23 +42,20 @@ export async function POST(request: NextRequest) {
     let whereClause = teamsArray.length > 0 ? 'WHERE t.team_abbreviation = ANY($1)' : ''
     const params: any[] = teamsArray.length > 0 ? [teamsArray] : []
 
-    if (selectedAttributes.includes('years') && fromYear) {
-      whereClause += whereClause ? ' AND ' : 'WHERE '
-      whereClause += 'ts.from_year <= $' + (params.length + 1)
-      params.push(fromYear)
-    }
-
-    if (selectedAttributes.includes('years') && toYear) {
-      whereClause += whereClause ? ' AND ' : 'WHERE '
-      whereClause += 'ts.to_year >= $' + (params.length + 1)
-      params.push(toYear)
-    }
-
     const query = `
       SELECT ${selectClause}
       FROM teams t
       LEFT JOIN franchises f ON f.id = t.franchise_id
-      LEFT JOIN team_stats ts ON ts.franchise_id = f.id
+      LEFT JOIN (
+        SELECT franchise_id, 
+               ${Object.entries(aggregateFunctions).map(([key, value]) => `${value} as ${key}`).join(', ')}
+        FROM team_stats
+        ${fromYear || toYear ? 'WHERE ' : ''}
+        ${fromYear ? `from_year <= ${fromYear}` : ''}
+        ${fromYear && toYear ? ' AND ' : ''}
+        ${toYear ? `to_year >= ${toYear}` : ''}
+        GROUP BY franchise_id
+      ) ts ON ts.franchise_id = f.id
       ${whereClause}
       GROUP BY ${groupByColumns.join(', ')}
       ${orderClause}

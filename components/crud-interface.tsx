@@ -135,7 +135,7 @@ export function CrudInterface() {
   const [sqlQuery, setSqlQuery] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [selectedAttributes, setSelectedAttributes] = useState<string[]>([])
-  const [topN, setTopN] = useState<number>(10)
+  const [topN, setTopN] = useState<string>('')
   const [sortBy, setSortBy] = useState<string>('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [fromYear, setFromYear] = useState<number>(1946)
@@ -213,7 +213,15 @@ export function CrudInterface() {
     setPlayerFormData({})
     setTeamFormData({})
     setRetrievedData(null)
-    setSqlQuery('')  // Add this line to clear the SQL query
+    setSqlQuery('')
+    setSelectedItems([])  // Clear selected items
+    setSelectedAttributes([])  // Clear selected attributes
+    setTopN('')  // Reset topN
+    setSortBy('')  // Reset sortBy
+    setSortOrder('desc')  // Reset sortOrder to default
+    setFromYear(1946)  // Reset fromYear to default
+    setToYear(2023)  // Reset toYear to default
+    setSearchTerm('')  // Clear search term
   }
 
   const handlePlayerFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,10 +245,51 @@ export function CrudInterface() {
   }
 
   const handleSubmit = async () => {
-    if (entity === 'Player') {
-      await handlePlayerSubmit()
-    } else if (entity === 'Team') {
-      await handleTeamSubmit()
+    setIsLoading(true)
+    setError(null)
+    setRetrievedData(null)
+    setSqlQuery('')
+
+    try {
+      let response
+      if (crudAction === 'Retrieve') {
+        const endpoint = entity === 'Player' ? '/api/players/retrieve' : '/api/teams/retrieve'
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            [entity.toLowerCase() + 's']: selectedItems,
+            attributes: selectedAttributes,
+            topN: topN ? parseInt(topN) : undefined, // Parse topN here
+            sortBy,
+            sortOrder,
+            fromYear: selectedAttributes.includes('years') ? fromYear : undefined,
+            toYear: selectedAttributes.includes('years') ? toYear : undefined,
+          }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Retrieved data:', data)
+          setRetrievedData(data.results)
+          setSqlQuery(data.query)
+        } else {
+          const errorData = await response.json()
+          console.error('Error response:', errorData)
+          throw new Error(`Failed to retrieve ${entity.toLowerCase()}s`)
+        }
+      } else {
+        if (entity === 'Player') {
+          await handlePlayerSubmit()
+        } else if (entity === 'Team') {
+          await handleTeamSubmit()
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      setError((error as Error).message)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -548,34 +597,112 @@ export function CrudInterface() {
               </div>
             )}
 
-            {crudAction === 'Retrieve' && selectedAttributes.includes('years') && (
-              <div className="mt-4">
-                <h3 className="text-lg font-medium text-[#17408B] mb-2">Year Range</h3>
-                <div className="flex items-center space-x-4">
-                  <div>
-                    <Label htmlFor="fromYear">From</Label>
-                    <Input
-                      id="fromYear"
-                      type="number"
-                      value={fromYear}
-                      onChange={(e) => setFromYear(Number(e.target.value))}
-                      min={1946}
-                      max={2023}
-                    />
+            {crudAction === 'Retrieve' && (
+              <>
+                {entity === 'Player' && selectedItems.length === 0 && (
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="topN" className="block text-sm font-medium text-gray-700">Top N Results</label>
+                      <Input
+                        id="topN"
+                        type="number"
+                        value={topN}
+                        onChange={(e) => setTopN(e.target.value)}
+                        className="mt-1"
+                        max="10"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="sortBy" className="block text-sm font-medium text-gray-700">Sort By</label>
+                      <Select onValueChange={setSortBy} value={sortBy}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select attribute to sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedAttributes.map((attr) => (
+                            <SelectItem key={attr} value={attr}>{attr}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label htmlFor="sortOrder" className="block text-sm font-medium text-gray-700">Sort Order</label>
+                      <Select onValueChange={(value) => setSortOrder(value as 'asc' | 'desc')} value={sortOrder}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select sort order" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="asc">Ascending</SelectItem>
+                          <SelectItem value="desc">Descending</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="toYear">To</Label>
-                    <Input
-                      id="toYear"
-                      type="number"
-                      value={toYear}
-                      onChange={(e) => setToYear(Number(e.target.value))}
-                      min={1946}
-                      max={2023}
-                    />
+                )}
+                {entity === 'Team' && selectedItems.length === 0 && (
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="topN" className="block text-sm font-medium text-gray-700">Top N Results</label>
+                      <Input
+                        id="topN"
+                        type="number"
+                        value={topN}
+                        onChange={(e) => setTopN(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="sortBy" className="block text-sm font-medium text-gray-700">Sort By</label>
+                      <Select onValueChange={setSortBy} value={sortBy}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select attribute to sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedAttributes.map((attr) => (
+                            <SelectItem key={attr} value={attr}>{attr}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label htmlFor="sortOrder" className="block text-sm font-medium text-gray-700">Sort Order</label>
+                      <Select onValueChange={(value) => setSortOrder(value as 'asc' | 'desc')} value={sortOrder}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select sort order" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="asc">Ascending</SelectItem>
+                          <SelectItem value="desc">Descending</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
-              </div>
+                )}
+                {selectedAttributes.includes('years') && (
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="fromYear" className="block text-sm font-medium text-gray-700">From Year</label>
+                      <Input
+                        id="fromYear"
+                        type="number"
+                        value={fromYear}
+                        onChange={(e) => setFromYear(parseInt(e.target.value))}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="toYear" className="block text-sm font-medium text-gray-700">To Year</label>
+                      <Input
+                        id="toYear"
+                        type="number"
+                        value={toYear}
+                        onChange={(e) => setToYear(parseInt(e.target.value))}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="flex justify-between mt-4">
