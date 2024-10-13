@@ -10,19 +10,19 @@ export async function GET(
   const id = params.id;
 
   try {
-    // Fetch team details along with avg_weight, avg_age, total_gp, and avg_height
     const { rows } = await pool.query(
       `
       SELECT 
-        team_abbreviation, 
-        team_name,
-        AVG(player_weight) as avg_weight,
-        AVG(age) as avg_age,
-        AVG(player_height) as avg_height,
-        SUM(gp) as total_gp
-      FROM player_seasons
-      WHERE team_abbreviation = $1
-      GROUP BY team_abbreviation, team_name
+        t.team_abbreviation, 
+        t.team_name,
+        AVG(ps.player_weight) as avg_weight,
+        AVG(ps.age) as avg_age,
+        AVG(ps.player_height) as avg_height,
+        SUM(ps.gp) as total_gp
+      FROM teams t
+      JOIN player_seasons ps ON t.id = ps.team_id
+      WHERE t.team_abbreviation = $1
+      GROUP BY t.team_abbreviation, t.team_name
       `,
       [id]
     );
@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   try {
     const query = `
-      UPDATE player_seasons
+      UPDATE teams
       SET team_name = $1
       WHERE team_abbreviation = $2
       RETURNING *
@@ -68,7 +68,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
   try {
     const query = `
-      DELETE FROM player_seasons
+      DELETE FROM teams
       WHERE team_abbreviation = $1
       RETURNING *
     `

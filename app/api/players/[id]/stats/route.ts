@@ -6,10 +6,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   try {
     const query = `
-      SELECT season, pts, reb, ast, net_rating
-      FROM player_seasons
-      WHERE player_name = $1
-      ORDER BY season
+      SELECT ps.season, ps.pts, ps.reb, ps.ast, ps.net_rating
+      FROM player_seasons ps
+      JOIN players p ON p.id = ps.player_id
+      WHERE p.player_name = $1
+      ORDER BY ps.season
     `;
 
     const { rows } = await pool.query(query, [playerName]);

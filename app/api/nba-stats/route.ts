@@ -12,11 +12,13 @@ export async function GET(request: NextRequest) {
 
   try {
     let sqlQuery = `
-      SELECT player_name, team_abbreviation, array_agg(DISTINCT season ORDER BY season DESC) as seasons
-      FROM player_seasons
-      WHERE player_name ILIKE $1 || '%'
-      GROUP BY player_name, team_abbreviation
-      ORDER BY player_name
+      SELECT p.player_name, t.team_abbreviation, array_agg(DISTINCT ps.season ORDER BY ps.season DESC) as seasons
+      FROM players p
+      JOIN player_seasons ps ON p.id = ps.player_id
+      JOIN teams t ON ps.team_id = t.id
+      WHERE p.player_name ILIKE $1 || '%'
+      GROUP BY p.player_name, t.team_abbreviation
+      ORDER BY p.player_name
       LIMIT 10
     `
     const values: any[] = [queryParam]

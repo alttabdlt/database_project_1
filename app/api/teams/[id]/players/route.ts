@@ -24,16 +24,18 @@ export async function GET(
       seasons: string[];
     }>(
       `SELECT 
-        player_name as id, 
-        player_name, 
-        team_abbreviation,
-        AVG(pts) as pts, 
-        AVG(reb) as reb, 
-        AVG(ast) as ast,
-        array_agg(DISTINCT season ORDER BY season DESC) as seasons
-       FROM player_seasons
-       WHERE team_abbreviation = $1
-       GROUP BY team_abbreviation, player_name`,
+        p.player_name AS id, 
+        p.player_name, 
+        t.team_abbreviation,
+        AVG(ps.pts) AS pts, 
+        AVG(ps.reb) AS reb, 
+        AVG(ps.ast) AS ast,
+        array_agg(DISTINCT ps.season ORDER BY ps.season DESC) AS seasons
+       FROM players p
+       JOIN player_seasons ps ON p.id = ps.player_id
+       JOIN teams t ON ps.team_id = t.id
+       WHERE t.team_abbreviation = $1
+       GROUP BY t.team_abbreviation, p.player_name`,
       [id]
     );
 

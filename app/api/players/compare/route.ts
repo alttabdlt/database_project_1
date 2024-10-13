@@ -12,16 +12,21 @@ export async function GET(request: NextRequest) {
   try {
     const query = `
       SELECT
-        player_name,
-        array_agg(DISTINCT team_abbreviation) AS team_abbreviations,
-        AVG(pts) AS pts,
-        AVG(reb) AS reb,
-        AVG(ast) AS ast,
-        AVG(net_rating) AS net_rating,
-        array_agg(DISTINCT season ORDER BY season) AS seasons
-      FROM player_seasons
-      WHERE player_name = ANY($1)
-      GROUP BY player_name
+        p.player_name,
+        array_agg(DISTINCT t.team_abbreviation) AS team_abbreviations,
+        AVG(ps.pts) AS pts,
+        AVG(ps.reb) AS reb,
+        AVG(ps.ast) AS ast,
+        AVG(ps.net_rating) AS net_rating,
+        array_agg(DISTINCT ps.season ORDER BY ps.season) AS seasons,
+        p.draft_year,
+        p.draft_round,
+        p.draft_number
+      FROM players p
+      JOIN player_seasons ps ON p.id = ps.player_id
+      JOIN teams t ON ps.team_id = t.id
+      WHERE p.player_name = ANY($1)
+      GROUP BY p.player_name, p.draft_year, p.draft_round, p.draft_number
     `;
 
     const { rows } = await pool.query(query, [playerNames]);

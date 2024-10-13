@@ -4,7 +4,7 @@ import pool from '@/lib/db'
 export async function GET(request: NextRequest) {
   try {
     const { rows } = await pool.query(
-      `SELECT team_abbreviation, team_name FROM player_seasons`
+      `SELECT team_abbreviation, team_name FROM teams`
     )
     return NextResponse.json(rows)
   } catch (error) {
@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
     const { team_abbreviation, team_name } = data
 
     const query = `
-      INSERT INTO player_seasons (
+      INSERT INTO teams (
         team_abbreviation, 
         team_name
       ) VALUES ($1, $2)
-      ON CONFLICT (team_abbreviation) DO NOTHING
+      ON CONFLICT (team_abbreviation) DO UPDATE 
+      SET team_name = EXCLUDED.team_name
       RETURNING *
     `
     const values = [team_abbreviation, team_name]

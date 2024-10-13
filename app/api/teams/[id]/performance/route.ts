@@ -11,13 +11,14 @@ export async function GET(
 
   try {
     const { rows } = await pool.query(
-      `SELECT season, 
-              AVG(pts) as avg_pts,
+      `SELECT ps.season, 
+              AVG(ps.pts) as avg_pts,
               COUNT(*) as games_played
-       FROM player_seasons
-       WHERE team_abbreviation = $1
-       GROUP BY season
-       ORDER BY season`,
+       FROM player_seasons ps
+       JOIN teams t ON ps.team_id = t.id
+       WHERE t.team_abbreviation = $1
+       GROUP BY ps.season
+       ORDER BY ps.season`,
       [id]
     )
 

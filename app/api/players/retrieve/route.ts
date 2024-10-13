@@ -7,19 +7,21 @@ export async function POST(request: NextRequest) {
 
     const query = `
       SELECT 
-        player_name, 
-        array_agg(DISTINCT team_abbreviation) as team_abbreviations,
-        array_agg(DISTINCT season ORDER BY season DESC) as seasons,
-        AVG(pts) as avg_pts,
-        AVG(reb) as avg_reb,
-        AVG(ast) as avg_ast,
-        draft_year,
-        draft_round,
-        draft_number
-      FROM player_seasons
-      WHERE player_name = ANY($1)
-      GROUP BY player_name, draft_year, draft_round, draft_number
-      ORDER BY player_name
+        p.player_name, 
+        array_agg(DISTINCT t.team_abbreviation) AS team_abbreviations,
+        array_agg(DISTINCT ps.season ORDER BY ps.season DESC) AS seasons,
+        AVG(ps.pts) AS avg_pts,
+        AVG(ps.reb) AS avg_reb,
+        AVG(ps.ast) AS avg_ast,
+        p.draft_year,
+        p.draft_round,
+        p.draft_number
+      FROM players p
+      JOIN player_seasons ps ON p.id = ps.player_id
+      JOIN teams t ON ps.team_id = t.id
+      WHERE p.player_name = ANY($1)
+      GROUP BY p.player_name, p.draft_year, p.draft_round, p.draft_number
+      ORDER BY p.player_name
     `
 
     const { rows } = await pool.query(query, [players])
@@ -30,4 +32,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Error retrieving players' }, { status: 500 })
   }
 }
-
